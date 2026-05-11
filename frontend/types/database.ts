@@ -25,6 +25,7 @@ export type Database = {
           email?: string | null
           password?: string | null
         }
+        Relationships: []
       }
       folders: {
         Row: {
@@ -48,6 +49,7 @@ export type Database = {
           parent_id?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       cards: {
         Row: {
@@ -57,6 +59,7 @@ export type Database = {
           front: string
           back: string
           hint: string | null
+          color: string | null
           is_flagged: boolean
           difficulty: number
           repeat_interval: number
@@ -72,6 +75,7 @@ export type Database = {
           front: string
           back: string
           hint?: string | null
+          color?: string | null
           is_flagged?: boolean
           difficulty?: number
           repeat_interval?: number
@@ -87,6 +91,7 @@ export type Database = {
           front?: string
           back?: string
           hint?: string | null
+          color?: string | null
           is_flagged?: boolean
           difficulty?: number
           repeat_interval?: number
@@ -95,6 +100,15 @@ export type Database = {
           review_count?: number
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'cards_folder_id_fkey'
+            columns: ['folder_id']
+            isOneToOne: false
+            referencedRelation: 'folders'
+            referencedColumns: ['id']
+          },
+        ]
       }
       tags: {
         Row: {
@@ -115,6 +129,7 @@ export type Database = {
           name?: string
           created_at?: string
         }
+        Relationships: []
       }
       card_tags: {
         Row: {
@@ -129,6 +144,22 @@ export type Database = {
           card_id?: string
           tag_id?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'card_tags_card_id_fkey'
+            columns: ['card_id']
+            isOneToOne: false
+            referencedRelation: 'cards'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'card_tags_tag_id_fkey'
+            columns: ['tag_id']
+            isOneToOne: false
+            referencedRelation: 'tags'
+            referencedColumns: ['id']
+          },
+        ]
       }
       tasks: {
         Row: {
@@ -158,6 +189,7 @@ export type Database = {
           due_date?: string | null
           created_at?: string
         }
+        Relationships: []
       }
       task_folders: {
         Row: {
@@ -172,6 +204,22 @@ export type Database = {
           task_id?: string
           folder_id?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'task_folders_task_id_fkey'
+            columns: ['task_id']
+            isOneToOne: false
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'task_folders_folder_id_fkey'
+            columns: ['folder_id']
+            isOneToOne: false
+            referencedRelation: 'folders'
+            referencedColumns: ['id']
+          },
+        ]
       }
       user_settings: {
         Row: {
@@ -189,6 +237,7 @@ export type Database = {
           daily_goal?: number
           updated_at?: string
         }
+        Relationships: []
       }
       user_streaks: {
         Row: {
@@ -212,6 +261,7 @@ export type Database = {
           last_reviewed_date?: string | null
           updated_at?: string
         }
+        Relationships: []
       }
       review_sessions: {
         Row: {
@@ -244,6 +294,7 @@ export type Database = {
           cards_passed?: number
           cards_failed?: number
         }
+        Relationships: []
       }
       card_reviews: {
         Row: {
@@ -273,6 +324,7 @@ export type Database = {
           interval_before?: number
           interval_after?: number
         }
+        Relationships: []
       }
       import_logs: {
         Row: {
@@ -302,6 +354,7 @@ export type Database = {
           success_count?: number
           error_count?: number
         }
+        Relationships: []
       }
     }
     Views: {
@@ -314,6 +367,7 @@ export type Database = {
           due_cards: number
           flagged_cards: number
         }
+        Relationships: []
       }
       task_progress: {
         Row: {
@@ -326,12 +380,18 @@ export type Database = {
           failed_reviews: number
           hard_reviews: number
         }
+        Relationships: []
       }
     }
     Enums: {
       review_outcome: ReviewOutcome
     }
-    Functions: Record<string, never>
+    Functions: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
 }
 

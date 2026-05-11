@@ -110,8 +110,8 @@ export interface CardWithState extends CardState {
 
 export type CardCategory = 'overdue' | 'due' | 'new'
 
-export interface QueuedCard {
-  card: CardWithState
+export interface QueuedCard<T extends CardWithState = CardWithState> {
+  card: T
   category: CardCategory
 }
 
@@ -123,14 +123,14 @@ export interface QueuedCard {
  *   2. Due today (hardest first — lowest EF)
  *   3. New cards (capped at maxNewCards to avoid overwhelm)
  */
-export function buildSessionQueue(
-  cards: CardWithState[],
+export function buildSessionQueue<T extends CardWithState>(
+  cards: T[],
   now: Date = new Date(),
   maxNewCards: number = 20,
-): QueuedCard[] {
-  const overdue: QueuedCard[] = []
-  const due: QueuedCard[] = []
-  const newCards: QueuedCard[] = []
+): QueuedCard<T>[] {
+  const overdue: QueuedCard<T>[] = []
+  const due: QueuedCard<T>[] = []
+  const newCards: QueuedCard<T>[] = []
 
   for (const card of cards) {
     if (!card.next_review_time) {

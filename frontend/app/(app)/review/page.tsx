@@ -1,36 +1,78 @@
-import { createClient } from '@/utils/supabase/server'
-import Link from 'next/link'
+'use client'
 
-export default async function ReviewPage() {
-  const supabase = await createClient()
-  const today = new Date().toISOString()
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { startSession } from '@/lib/actions/review'
 
-  const { count } = await supabase
-    .from('cards')
-    .select('*', { count: 'exact', head: true })
-    .lte('next_review_time', today)
+export default function StartReviewPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+
+  async function handleStart() {
+    setLoading(true)
+    try {
+      const sessionId = await startSession()
+      router.push(`/review/${sessionId}`)
+    } catch {
+      setLoading(false)
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Review</h1>
-
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="text-4xl font-bold text-zinc-900 dark:text-zinc-100">{count ?? 0}</p>
-        <p className="mt-1 text-zinc-500 dark:text-zinc-400">cards due</p>
-
-        {(count ?? 0) > 0 ? (
-          <Link
-            href="/review/session"
-            className="mt-6 inline-block rounded-md bg-zinc-900 px-6 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-          >
-            Start review
-          </Link>
-        ) : (
-          <p className="mt-4 text-sm text-green-600 dark:text-green-400">
-            All caught up! Check back later.
-          </p>
-        )}
+    <div style={styles.root}>
+      <div style={styles.card}>
+        <div style={styles.icon}>🃏</div>
+        <h1 style={styles.title}>Ready to review?</h1>
+        <p style={styles.sub}>
+          All due cards from your library will be queued up using spaced repetition.
+        </p>
+        <button
+          onClick={handleStart}
+          disabled={loading}
+          style={{ ...styles.btn, opacity: loading ? 0.6 : 1 }}
+        >
+          {loading ? 'Starting…' : 'Start Session'}
+        </button>
       </div>
     </div>
   )
 }
+
+const styles: Record<string, React.CSSProperties> = {
+  root: {
+    minHeight: '60vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  card: {
+    background: 'var(--card)',
+    borderRadius: 24,
+    padding: '48px 40px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 16,
+    maxWidth: 360,
+    width: '100%',
+    textAlign: 'center',
+    boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+  },
+  icon:  { fontSize: 48 },
+  title: { fontSize: 24, fontWeight: 700, margin: 0 },
+  sub:   { fontSize: 15, color: 'var(--muted-foreground)', margin: 0, lineHeight: 1.6 },
+  btn: {
+    marginTop: 8,
+    padding: '14px 40px',
+    borderRadius: 12,
+    border: 'none',
+    background: 'var(--primary)',
+    color: 'var(--primary-foreground)',
+    fontWeight: 700,
+    fontSize: 16,
+    cursor: 'pointer',
+    transition: 'opacity 0.15s',
+  },
+}
+
