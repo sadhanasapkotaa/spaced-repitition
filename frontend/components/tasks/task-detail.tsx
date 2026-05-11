@@ -4,13 +4,14 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { assignFoldersToTask, setTaskCompleted } from '@/lib/actions/tasks'
 import { startSession } from '@/lib/actions/review'
-import type { TaskRow, TaskProgress, FolderRow } from '@/types/database'
+import type { FolderWithPath } from '@/lib/queries/folders'
+import type { TaskRow, TaskProgress } from '@/types/database'
 
 interface Props {
   task: TaskRow
   progress: TaskProgress | null
   assignedFolderIds: string[]
-  allFolders: Pick<FolderRow, 'id' | 'name'>[]
+  allFolders: FolderWithPath[]
 }
 
 export default function TaskDetail({ task, progress, assignedFolderIds, allFolders }: Props) {
@@ -300,9 +301,11 @@ export default function TaskDetail({ task, progress, assignedFolderIds, allFolde
             <a href="/library" style={{ color: 'var(--primary)' }}>Create one →</a>
           </p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {allFolders.map(folder => {
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {(editFolders ? allFolders : allFolders.filter(f => selected.has(f.id))).map(folder => {
               const checked = selected.has(folder.id)
+              const parentPath = folder.path.slice(0, -1)
+              const indent = Math.min(folder.depth, 4) * 16
               return (
                 <div
                   key={folder.id}
@@ -311,7 +314,8 @@ export default function TaskDetail({ task, progress, assignedFolderIds, allFolde
                     display: 'flex',
                     alignItems: 'center',
                     gap: 12,
-                    padding: '11px 14px',
+                    padding: '10px 14px',
+                    paddingLeft: 14 + indent,
                     borderRadius: 11,
                     border: `1px solid ${checked ? 'var(--primary)' : 'var(--border)'}`,
                     background: checked ? 'color-mix(in srgb, var(--primary) 8%, transparent)' : 'transparent',
@@ -337,16 +341,45 @@ export default function TaskDetail({ task, progress, assignedFolderIds, allFolde
                   }}>
                     {checked ? '✓' : ''}
                   </div>
-                  <span style={{
-                    fontSize: 14,
-                    fontWeight: checked ? 600 : 400,
-                    color: 'var(--foreground)',
-                  }}>
-                    {folder.name}
-                  </span>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                    {parentPath.length > 0 && (
+                      <span style={{
+                        fontSize: 11,
+                        color: 'var(--muted-foreground)',
+                        fontWeight: 500,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {parentPath.join(' / ')}
+                      </span>
+                    )}
+                    <span style={{
+                      fontSize: 14,
+                      fontWeight: checked ? 600 : 500,
+                      color: 'var(--foreground)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {folder.name}
+                    </span>
+                  </div>
                 </div>
               )
             })}
+
+            {!editFolders && selected.size === 0 && (
+              <p style={{
+                margin: 0,
+                fontSize: 13,
+                color: 'var(--muted-foreground)',
+                padding: '8px 0',
+              }}>
+                No folders linked yet. Click Edit to add some.
+              </p>
+            )}
           </div>
         )}
       </div>

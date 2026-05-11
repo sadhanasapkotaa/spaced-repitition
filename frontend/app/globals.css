@@ -83,3 +83,14 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
 }
+
+/* App navigation — sidebar on >=768px, bottom bar below */
+.app-sidebar { display: none; }
+.app-bottomnav { display: flex; }
+.app-main-pad-bottom { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+
+@media (min-width: 768px) {
+  .app-sidebar { display: flex; }
+  .app-bottomnav { display: none; }
+  .app-main-pad-bottom { padding-bottom: 0; }
+}

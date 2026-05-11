@@ -16,9 +16,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-dvh" style={{ background: 'var(--background)' }}>
+    <div style={{ display: 'flex', minHeight: '100dvh', background: 'var(--background)' }}>
       <Sidebar signOut={signOut} />
-      <main className="flex-1 min-w-0 pb-18 md:pb-0">
+      <main className="app-main-pad-bottom" style={{ flex: 1, minWidth: 0 }}>
         {children}
       </main>
       <BottomNav />

@@ -5,18 +5,21 @@ export async function getDueCards(taskId?: string) {
   const now = new Date().toISOString()
 
   if (taskId) {
-    // Fetch folder IDs linked to this task, then filter cards
-    const { data: taskFolders } = await supabase
-      .from('task_folders')
-      .select('folder_id')
-      .eq('task_id', taskId)
+    // Expand task's linked folders to include the full descendant subtree.
+    const { data: folderIds, error: rpcError } = await supabase
+      .rpc('get_task_folder_ids', { task_uuid: taskId })
 
-    const folderIds = taskFolders?.map(tf => tf.folder_id) ?? []
+    if (rpcError) throw rpcError
+
+    const ids = (folderIds ?? []) as string[]
+
+    // Empty set → no folders linked → no due cards.
+    if (ids.length === 0) return []
 
     const { data, error } = await supabase
       .from('cards')
       .select('*')
-      .in('folder_id', folderIds.length ? folderIds : [''])
+      .in('folder_id', ids)
       .or(`next_review_time.lte.${now},next_review_time.is.null`)
       .order('next_review_time', { ascending: true, nullsFirst: false })
 

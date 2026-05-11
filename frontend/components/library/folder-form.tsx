@@ -28,41 +28,85 @@ export default function FolderForm({ parentId }: Props) {
     })
   }
 
+  const label = parentId ? 'New subfolder' : 'New folder'
+  const placeholder = parentId ? 'Subfolder name' : 'Folder name'
+
   if (!open) {
     return (
       <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        style={{
+          padding: '10px 16px',
+          borderRadius: 10,
+          border: 'none',
+          background: 'var(--primary)',
+          color: 'var(--primary-foreground)',
+          fontSize: 13,
+          fontWeight: 700,
+          cursor: 'pointer',
+        }}
       >
-        New Folder
+        + {label}
       </button>
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex items-center gap-2">
+    <form
+      onSubmit={handleSubmit}
+      style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}
+    >
       <input
         value={name}
         onChange={e => setName(e.target.value)}
-        placeholder="Folder name"
+        placeholder={placeholder}
         autoFocus
-        className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        style={{
+          padding: '8px 12px',
+          borderRadius: 8,
+          border: '1px solid var(--border)',
+          background: 'var(--background)',
+          color: 'var(--foreground)',
+          fontSize: 14,
+          outline: 'none',
+          minWidth: 180,
+        }}
       />
       <button
         type="submit"
         disabled={isPending || !name.trim()}
-        className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+        style={{
+          padding: '8px 14px',
+          borderRadius: 8,
+          border: 'none',
+          background: 'var(--primary)',
+          color: 'var(--primary-foreground)',
+          fontSize: 13,
+          fontWeight: 700,
+          cursor: 'pointer',
+          opacity: isPending || !name.trim() ? 0.55 : 1,
+        }}
       >
         {isPending ? 'Creating…' : 'Create'}
       </button>
       <button
         type="button"
-        onClick={() => { setOpen(false); setName('') }}
-        className="rounded-md px-3 py-2 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+        onClick={() => { setOpen(false); setName(''); setError(null) }}
+        style={{
+          padding: '8px 12px',
+          borderRadius: 8,
+          border: '1px solid var(--border)',
+          background: 'transparent',
+          color: 'var(--foreground)',
+          fontSize: 13,
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
       >
         Cancel
       </button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p style={{ margin: 0, fontSize: 13, color: '#ef4444' }}>{error}</p>}
     </form>
   )
 }

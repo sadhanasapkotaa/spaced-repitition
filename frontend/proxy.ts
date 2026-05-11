@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/middleware'
 const PROTECTED_PATHS = ['/dashboard', '/library', '/tasks', '/review', '/settings', '/stats', '/tags']
 const AUTH_PATHS = ['/login', '/register']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { supabase, supabaseResponse } = createClient(request)
 
   // Refresh session — must be called to keep the session alive
@@ -29,6 +29,7 @@ export async function middleware(request: NextRequest) {
 
   return supabaseResponse
 }
+
 
 export const config = {
   matcher: [

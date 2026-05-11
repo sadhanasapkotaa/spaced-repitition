@@ -24,7 +24,7 @@ export function Sidebar({ signOut }: { signOut: () => void }) {
 
   return (
     <aside
-      className="hidden md:flex"
+      className="app-sidebar"
       style={{
         width: 220,
         minHeight: '100dvh',
@@ -117,7 +117,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="md:hidden"
+      className="app-bottomnav"
       style={{
         position: 'fixed',
         bottom: 0,
@@ -125,7 +125,6 @@ export function BottomNav() {
         right: 0,
         background: 'var(--card)',
         borderTop: '1px solid var(--border)',
-        display: 'flex',
         justifyContent: 'space-around',
         padding: '8px 4px max(8px, env(safe-area-inset-bottom)) 4px',
         zIndex: 40,
@@ -149,10 +148,18 @@ export function BottomNav() {
               fontWeight: active ? 700 : 500,
               color: active ? 'var(--foreground)' : 'var(--muted-foreground)',
               textDecoration: 'none',
+              minWidth: 0,
             }}
           >
             <span style={{ fontSize: 18 }}>{item.icon}</span>
-            {item.label}
+            <span style={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: '100%',
+            }}>
+              {item.label}
+            </span>
           </Link>
         )
       })}

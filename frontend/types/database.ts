@@ -387,7 +387,14 @@ export type Database = {
       review_outcome: ReviewOutcome
     }
     Functions: {
-      [_ in never]: never
+      ensure_app_user: {
+        Args: Record<string, never>
+        Returns: unknown
+      }
+      get_task_folder_ids: {
+        Args: { task_uuid: string }
+        Returns: string[]
+      }
     }
     CompositeTypes: {
       [_ in never]: never

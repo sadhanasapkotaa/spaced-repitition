@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
+import type { UserRow } from '@/types/database'
 
 /**
  * Returns the currently authenticated Supabase auth user, or null.
@@ -22,20 +23,20 @@ export async function requireUser() {
 }
 
 /**
- * Returns the row from public."User" matching the auth session,
- * using the email as the join key (populated by the DB trigger).
+ * Returns the row from public."User" matching the auth session, creating it
+ * if needed. Delegates to the SECURITY DEFINER `ensure_app_user` function so
+ * RLS on the User table doesn't block backfill.
  */
-export async function getAppUser() {
+export async function getAppUser(): Promise<UserRow | null> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user?.email) return null
+  const { data: authUser } = await supabase.auth.getUser()
+  if (!authUser.user?.email) return null
 
-  const { data, error } = await supabase
-    .from('User')
-    .select('*')
-    .eq('email', user.email)
-    .single()
+  const { data, error } = await supabase.rpc('ensure_app_user')
 
-  if (error) return null
-  return data
+  if (error) {
+    console.error('[getAppUser] ensure_app_user RPC failed:', error.message)
+    return null
+  }
+  return data as UserRow | null
 }

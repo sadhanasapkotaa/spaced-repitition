@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation'
 import { getTask, getTaskProgress, getTaskFolders } from '@/lib/queries/tasks'
-import { getFolders } from '@/lib/queries/folders'
+import { getAllFoldersWithPath } from '@/lib/queries/folders'
 import TaskDetail from '@/components/tasks/task-detail'
+
+export const dynamic = 'force-dynamic'
 
 interface Props {
   params: Promise<{ taskId: string }>
@@ -14,7 +16,7 @@ export default async function TaskPage({ params }: Props) {
     getTask(taskId).catch(() => null),
     getTaskProgress(taskId),
     getTaskFolders(taskId).catch(() => []),
-    getFolders(),
+    getAllFoldersWithPath(),
   ])
 
   if (!task) notFound()
