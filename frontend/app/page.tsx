@@ -1,10 +1,13 @@
 import { createClient } from '@/utils/supabase/server'
-import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 
 export default async function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-     <h1>Hello</h1>
-    </div>
-  );
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    redirect('/dashboard')
+  } else {
+    redirect('/login')
+  }
 }
