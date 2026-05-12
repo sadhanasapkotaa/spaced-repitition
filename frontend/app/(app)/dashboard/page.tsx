@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getAppUser } from '@/utils/supabase/auth'
 import { getDashboardData } from '@/lib/queries/dashboard'
 import TaskStreakChart from '@/components/tasks/task-streak-chart'
+import { TaskRatioBar } from '@/components/tasks/task-ratio-bar'
 
 export const dynamic = 'force-dynamic'
 
@@ -150,14 +151,13 @@ export default async function DashboardPage() {
 function TaskRow({ task }: { task: import('@/lib/queries/dashboard').ActiveTask }) {
   const days = daysUntil(task.due_date)
   const due = formatDays(days)
+  const pct = task.totalDays > 0 ? Math.round((task.doneDays / task.totalDays) * 100) : 0
 
   return (
     <Link
       href={`/tasks/${task.id}`}
       style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
+        display: 'block',
         padding: '14px 18px',
         background: 'var(--card)',
         border: '1px solid var(--border)',
@@ -166,41 +166,62 @@ function TaskRow({ task }: { task: import('@/lib/queries/dashboard').ActiveTask 
         color: 'inherit',
       }}
     >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{
-          margin: 0,
-          fontSize: 14,
-          fontWeight: 600,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-        }}>
-          {task.name}
-        </p>
-        {due && (
+      {/* Top line: name + due-cards badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{
-            margin: '3px 0 0',
-            fontSize: 12,
-            color: due.color,
-            fontWeight: due.bold ? 700 : 500,
+            margin: 0,
+            fontSize: 14,
+            fontWeight: 600,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
           }}>
-            {due.label}
+            {task.name}
           </p>
+          {due && (
+            <p style={{
+              margin: '3px 0 0',
+              fontSize: 12,
+              color: due.color,
+              fontWeight: due.bold ? 700 : 500,
+            }}>
+              {due.label}
+            </p>
+          )}
+        </div>
+        {task.due_cards > 0 && (
+          <span style={{
+            padding: '3px 10px',
+            borderRadius: 999,
+            background: 'color-mix(in srgb, #f97316 16%, transparent)',
+            color: '#ea580c',
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: '0.04em',
+            flexShrink: 0,
+          }}>
+            {task.due_cards} DUE
+          </span>
         )}
       </div>
-      {task.due_cards > 0 && (
+
+      {/* Per-task done/missed ratio bar */}
+      <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <TaskRatioBar doneDays={task.doneDays} totalDays={task.totalDays} height={8} />
+        </div>
         <span style={{
-          padding: '3px 10px',
-          borderRadius: 999,
-          background: 'color-mix(in srgb, #f97316 16%, transparent)',
-          color: '#ea580c',
           fontSize: 11,
-          fontWeight: 800,
-          letterSpacing: '0.04em',
+          color: 'var(--muted-foreground)',
+          fontVariantNumeric: 'tabular-nums',
+          whiteSpace: 'nowrap',
+          minWidth: 64,
+          textAlign: 'right',
         }}>
-          {task.due_cards} DUE
+          {task.doneDays}/{task.totalDays} · {pct}%
         </span>
-      )}
+      </div>
     </Link>
   )
 }

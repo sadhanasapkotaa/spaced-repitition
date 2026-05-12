@@ -27,10 +27,10 @@ export default function TaskStreakChart({ tasks }: Props) {
         background: 'var(--card)',
         border: '1px solid var(--border)',
         borderRadius: 14,
-        padding: '16px 18px',
+        padding: '18px 20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 12,
+        gap: 18,
       }}>
         {tasks.map(t => (
           <Row key={t.id} task={t} />
@@ -53,12 +53,12 @@ function Row({ task }: { task: TaskChart }) {
         alignItems: 'baseline',
         justifyContent: 'space-between',
         gap: 12,
-        marginBottom: 5,
+        marginBottom: 7,
       }}>
         <p style={{
           margin: 0,
-          fontSize: 12,
-          fontWeight: 500,
+          fontSize: 13,
+          fontWeight: 600,
           color: 'var(--foreground)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -68,7 +68,7 @@ function Row({ task }: { task: TaskChart }) {
         </p>
         <p style={{
           margin: 0,
-          fontSize: 11,
+          fontSize: 12,
           color: 'var(--muted-foreground)',
           fontVariantNumeric: 'tabular-nums',
           whiteSpace: 'nowrap',

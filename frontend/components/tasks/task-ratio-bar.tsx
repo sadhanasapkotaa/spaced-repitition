@@ -1,8 +1,10 @@
-// Muted green/red — visible enough to read at a glance, but tame enough to
-// sit alongside the app's otherwise monochrome palette.
+// Green = days the habit was checked off, red = days it was missed.
+// Ratio is doneDays : missedDays over the task's active window, so e.g.
+// a 3-day streak + 2 misses + 5-day streak (8 of 10 days) renders as
+// 80% green | 20% red.
 export const taskBarColors = {
-  done:   '#16a34a',
-  missed: '#dc2626',
+  done:   '#22c55e',
+  missed: '#ef4444',
 } as const
 
 interface Props {
@@ -11,7 +13,7 @@ interface Props {
   height?: number
 }
 
-export function TaskRatioBar({ doneDays, totalDays, height = 5 }: Props) {
+export function TaskRatioBar({ doneDays, totalDays, height = 14 }: Props) {
   // No active days yet — show an empty rail rather than an all-red bar.
   if (totalDays <= 0) {
     return (
@@ -43,7 +45,7 @@ export function TaskRatioBar({ doneDays, totalDays, height = 5 }: Props) {
         <div style={{ flex: doneDays, background: taskBarColors.done }} />
       )}
       {missedDays > 0 && (
-        <div style={{ flex: missedDays, background: taskBarColors.missed, opacity: 0.85 }} />
+        <div style={{ flex: missedDays, background: taskBarColors.missed }} />
       )}
     </div>
   )

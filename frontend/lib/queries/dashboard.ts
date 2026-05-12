@@ -17,6 +17,8 @@ export interface ActiveTask {
   name: string
   due_date: string | null
   due_cards: number
+  doneDays: number
+  totalDays: number
 }
 
 // Per-task summary for the dashboard chart: total days the task has been
@@ -138,9 +140,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
   const tasks = tasksRes.data ?? []
   const today = todayDateStr()
-  let activeTasks: ActiveTask[] = tasks.map(t => ({
-    id: t.id, name: t.name, due_date: t.due_date, due_cards: 0,
-  }))
+  let activeTasks: ActiveTask[] = []
   let taskCharts: TaskChart[] = []
   let currentStreak = 0
   let longestStreak = 0
@@ -153,10 +153,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     ])
 
     const byId = new Map(progressRes.data?.map(p => [p.task_id, p.due_cards]) ?? [])
-    // Display the next 8 by due date; streak math below uses the full set.
-    activeTasks = tasks.slice(0, 8).map(t => ({
-      id: t.id, name: t.name, due_date: t.due_date, due_cards: byId.get(t.id) ?? 0,
-    }))
 
     // Build active windows for streak + chart math.
     const windows: TaskWindow[] = tasks.map(t => {
@@ -168,20 +164,38 @@ export async function getDashboardData(): Promise<DashboardData> {
         completions: new Set(completionsByTask.get(t.id) ?? []),
       }
     })
+    const windowById = new Map(windows.map(w => [w.id, w]))
 
-    // Per-task chart summary (done vs missed ratio over the task's window).
-    taskCharts = windows.map(w => {
-      const tName = tasks.find(t => t.id === w.id)!.name
+    // For each task, count done/total days within its active window.
+    const ratioFor = (id: string): { doneDays: number; totalDays: number } => {
+      const w = windowById.get(id)!
       const end = w.end && w.end < today ? w.end : today
       const totalDays = daysBetween(w.start, end)
-      // Count completions that fall inside the [start, end] window.
       let doneDays = 0
-      for (const c of w.completions) {
-        if (c >= w.start && c <= end) doneDays++
-      }
+      for (const c of w.completions) if (c >= w.start && c <= end) doneDays++
+      return { doneDays, totalDays }
+    }
+
+    // Display the next 8 by due date; streak math below uses the full set.
+    activeTasks = tasks.slice(0, 8).map(t => {
+      const { doneDays, totalDays } = ratioFor(t.id)
       return {
-        id: w.id,
-        name: tName,
+        id: t.id,
+        name: t.name,
+        due_date: t.due_date,
+        due_cards: byId.get(t.id) ?? 0,
+        doneDays,
+        totalDays,
+      }
+    })
+
+    // Per-task chart summary (full set, not just the top 8).
+    taskCharts = tasks.map(t => {
+      const { doneDays, totalDays } = ratioFor(t.id)
+      const w = windowById.get(t.id)!
+      return {
+        id: t.id,
+        name: t.name,
         doneDays,
         totalDays,
         doneToday: w.completions.has(today),
