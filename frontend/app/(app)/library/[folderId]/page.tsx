@@ -76,12 +76,11 @@ export default async function FolderPage({ params, searchParams }: Props) {
               gap: 6,
               padding: '8px 14px',
               borderRadius: 8,
-              background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+              background: '#000000',
               color: '#fff',
               fontSize: 13,
               fontWeight: 700,
               textDecoration: 'none',
-              boxShadow: '0 4px 14px rgba(139, 92, 246, 0.32)',
             }}
           >
             ▶ Play

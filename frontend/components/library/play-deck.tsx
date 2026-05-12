@@ -400,7 +400,7 @@ export default function PlayDeck({ cards, folderName, folderId, subfolderCount }
           style={{
             ...styles.card,
             ...styles.activeCard,
-            background: tintFor(current?.color ?? null, 22),
+            background: tintFor(current?.color ?? null, 8),
             border: `1px solid ${borderFor(current?.color ?? null)}`,
             borderTop: `4px solid ${current?.color ?? 'transparent'}`,
             transform: dragTransform,
@@ -416,7 +416,13 @@ export default function PlayDeck({ cards, folderName, folderId, subfolderCount }
             }}
           >
             {/* Front face */}
-            <div style={{ ...styles.cardFace, ...styles.faceFront }}>
+            <div
+              style={{
+                ...styles.cardFace,
+                ...styles.faceFront,
+                background: tintFor(current?.color ?? null, 8),
+              }}
+            >
               <span style={styles.cardSide}>FRONT</span>
               <p style={styles.cardText}>{current?.front}</p>
               {current?.folderName && current.folderName !== folderName && (
@@ -433,7 +439,13 @@ export default function PlayDeck({ cards, folderName, folderId, subfolderCount }
             </div>
 
             {/* Back face */}
-            <div style={{ ...styles.cardFace, ...styles.faceBack }}>
+            <div
+              style={{
+                ...styles.cardFace,
+                ...styles.faceBack,
+                background: tintFor(current?.color ?? null, 8),
+              }}
+            >
               <span style={styles.cardSide}>BACK</span>
               <p style={styles.cardText}>{current?.back}</p>
               {current?.hint && (
@@ -837,8 +849,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   ctrlBtnPrimary: {
     flex: 2,
-    background: 'var(--primary)',
-    color: 'var(--primary-foreground)',
+    background: '#000000',
+    color: '#ffffff',
     border: 'none',
     letterSpacing: '0.05em',
   },
