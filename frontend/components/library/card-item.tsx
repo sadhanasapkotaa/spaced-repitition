@@ -12,9 +12,12 @@ interface Props {
   allTags?: SimpleTag[]
 }
 
+export const CARD_DRAG_MIME = 'application/x-monk-card'
+
 export default function CardItem({ card, allTags }: Props) {
   const [flipped, setFlipped] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [dragging, setDragging] = useState(false)
   const [isPending, startTransition] = useTransition()
 
   const tags = card.card_tags?.flatMap(ct => ct.tags ? [ct.tags] : []) ?? []
@@ -46,26 +49,47 @@ export default function CardItem({ card, allTags }: Props) {
     )
   }
 
-  const borderStyle = card.color
-    ? { borderLeftColor: card.color, borderLeftWidth: 4 }
-    : {}
+  const tintedBg = card.color
+    ? `color-mix(in srgb, ${card.color} 14%, var(--card))`
+    : 'var(--card)'
+  const borderColor = card.color
+    ? `color-mix(in srgb, ${card.color} 35%, var(--border))`
+    : 'var(--border)'
+
+  function handleDragStart(e: React.DragEvent<HTMLDivElement>) {
+    const payload = JSON.stringify({
+      cardId: card.id,
+      fromFolderId: card.folder_id,
+    })
+    e.dataTransfer.setData(CARD_DRAG_MIME, payload)
+    e.dataTransfer.setData('text/plain', card.front)
+    e.dataTransfer.effectAllowed = 'move'
+    setDragging(true)
+  }
+
+  function handleDragEnd() {
+    setDragging(false)
+  }
 
   return (
     <div
       role="button"
       tabIndex={0}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       onClick={() => setFlipped(f => !f)}
       onKeyDown={e => e.key === 'Enter' && setFlipped(f => !f)}
       style={{
-        ...borderStyle,
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderLeftWidth: borderStyle.borderLeftWidth ?? 1,
-        borderLeftColor: borderStyle.borderLeftColor ?? 'var(--border)',
+        background: tintedBg,
+        border: `1px solid ${borderColor}`,
+        borderLeftWidth: card.color ? 4 : 1,
+        borderLeftColor: card.color ?? 'var(--border)',
         borderRadius: 12,
         padding: '16px 18px',
-        cursor: 'pointer',
-        transition: 'box-shadow 0.15s',
+        cursor: dragging ? 'grabbing' : 'pointer',
+        opacity: dragging ? 0.4 : 1,
+        transition: 'box-shadow 0.15s, opacity 0.12s',
       }}
       onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.06)')}
       onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}

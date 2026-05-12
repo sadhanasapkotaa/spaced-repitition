@@ -64,9 +64,29 @@ export default async function FolderPage({ params, searchParams }: Props) {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        <CardForm folderId={folderId} />
+        <CardForm folderId={folderId} allTags={allTags} />
         <FolderForm parentId={folderId} />
         <FolderImportButton folderId={folderId} />
+        {(allCards.length > 0 || subfolders.length > 0) && (
+          <Link
+            href={`/library/${folderId}/play`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 14px',
+              borderRadius: 8,
+              background: 'linear-gradient(135deg, #8b5cf6, #ec4899)',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 700,
+              textDecoration: 'none',
+              boxShadow: '0 4px 14px rgba(139, 92, 246, 0.32)',
+            }}
+          >
+            ▶ Play
+          </Link>
+        )}
       </div>
 
       {/* Subfolders */}

@@ -13,12 +13,14 @@ interface CardPayload {
   back: string
   hint?: string | null
   color?: string | null
+  tag_ids?: string[]
 }
 
 function revalidateCardViews(folderId: string | null) {
   revalidatePath('/library')
   revalidatePath('/library/orphaned')
   revalidatePath('/library/flagged')
+  revalidatePath('/tags')
   if (folderId) revalidatePath(`/library/${folderId}`)
 }
 
@@ -27,7 +29,7 @@ export async function createCard(payload: CardPayload) {
   if (!appUser) throw new Error('Unauthorized')
 
   const supabase = await createClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('cards')
     .insert({
       user_id: appUser.id,
@@ -37,7 +39,15 @@ export async function createCard(payload: CardPayload) {
       hint: payload.hint ?? null,
       color: payload.color ?? null,
     })
+    .select('id')
+    .single()
   if (error) throw error
+
+  if (payload.tag_ids && payload.tag_ids.length > 0) {
+    const rows = payload.tag_ids.map(tag_id => ({ card_id: data.id, tag_id }))
+    const { error: tagErr } = await supabase.from('card_tags').insert(rows)
+    if (tagErr) throw tagErr
+  }
 
   revalidateCardViews(payload.folder_id)
 }

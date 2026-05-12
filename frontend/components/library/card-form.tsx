@@ -9,16 +9,23 @@ const PRESET_COLORS = [
   '#ec4899', '#14b8a6',
 ]
 
-interface Props {
-  folderId: string
+interface SimpleTag {
+  id: string
+  name: string
 }
 
-export default function CardForm({ folderId }: Props) {
+interface Props {
+  folderId: string
+  allTags?: SimpleTag[]
+}
+
+export default function CardForm({ folderId, allTags }: Props) {
   const [open, setOpen] = useState(false)
   const [front, setFront] = useState('')
   const [back, setBack] = useState('')
   const [hint, setHint] = useState('')
   const [color, setColor] = useState<string | null>(null)
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
@@ -27,8 +34,18 @@ export default function CardForm({ folderId }: Props) {
     setBack('')
     setHint('')
     setColor(null)
+    setSelectedTags(new Set())
     setError(null)
     setOpen(false)
+  }
+
+  function toggleTag(id: string) {
+    setSelectedTags(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -43,6 +60,7 @@ export default function CardForm({ folderId }: Props) {
           back: back.trim(),
           hint: hint.trim() || undefined,
           color: color ?? undefined,
+          tag_ids: selectedTags.size > 0 ? Array.from(selectedTags) : undefined,
         })
         reset()
       } catch {
@@ -55,9 +73,18 @@ export default function CardForm({ folderId }: Props) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        style={{
+          padding: '8px 14px',
+          borderRadius: 8,
+          border: 'none',
+          background: 'var(--primary)',
+          color: 'var(--primary-foreground)',
+          fontSize: 13,
+          fontWeight: 700,
+          cursor: 'pointer',
+        }}
       >
-        Add Card
+        + Add Card
       </button>
     )
   }
@@ -65,7 +92,21 @@ export default function CardForm({ folderId }: Props) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="w-full rounded-lg border border-zinc-200 bg-white p-4 space-y-3 dark:border-zinc-800 dark:bg-zinc-900"
+      style={{
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        padding: 16,
+        background: color
+          ? `color-mix(in srgb, ${color} 14%, var(--card))`
+          : 'var(--card)',
+        border: `1px solid ${color
+          ? `color-mix(in srgb, ${color} 35%, var(--border))`
+          : 'var(--border)'}`,
+        borderRadius: 12,
+        borderLeft: color ? `4px solid ${color}` : '1px solid var(--border)',
+      }}
     >
       <textarea
         value={front}
@@ -74,7 +115,7 @@ export default function CardForm({ folderId }: Props) {
         rows={2}
         required
         autoFocus
-        className="w-full resize-none rounded border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+        style={inputStyle}
       />
       <textarea
         value={back}
@@ -82,60 +123,157 @@ export default function CardForm({ folderId }: Props) {
         placeholder="Back"
         rows={2}
         required
-        className="w-full resize-none rounded border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+        style={inputStyle}
       />
       <input
         value={hint}
         onChange={e => setHint(e.target.value)}
         placeholder="Hint (optional)"
-        className="w-full rounded border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+        style={{ ...inputStyle, resize: 'none' }}
       />
 
-      {/* Color picker */}
       <div>
-        <p className="mb-1.5 text-xs text-zinc-500 dark:text-zinc-400">Card color</p>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
+        <p style={overlineStyle}>Color</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <ColorSwatch
+            color={null}
+            selected={!color}
             onClick={() => setColor(null)}
-            title="No color"
-            className={`h-6 w-6 rounded-full border-2 bg-zinc-200 dark:bg-zinc-700 ${
-              !color ? 'border-zinc-900 dark:border-zinc-100' : 'border-transparent'
-            }`}
           />
           {PRESET_COLORS.map(c => (
-            <button
-              type="button"
+            <ColorSwatch
               key={c}
+              color={c}
+              selected={color === c}
               onClick={() => setColor(c)}
-              title={c}
-              className={`h-6 w-6 rounded-full border-2 ${
-                color === c ? 'border-zinc-900 dark:border-zinc-100' : 'border-transparent'
-              }`}
-              style={{ backgroundColor: c }}
             />
           ))}
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {allTags && (
+        <div>
+          <p style={overlineStyle}>Tags</p>
+          {allTags.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted-foreground)' }}>
+              No tags yet. Create some on the Tags page.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {allTags.map(t => {
+                const checked = selectedTags.has(t.id)
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => toggleTag(t.id)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      border: `1px solid ${checked ? 'var(--primary)' : 'var(--border)'}`,
+                      background: checked ? 'var(--primary)' : 'transparent',
+                      color: checked ? 'var(--primary-foreground)' : 'var(--foreground)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {t.name}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
-      <div className="flex gap-2">
+      {error && <p style={{ margin: 0, fontSize: 13, color: '#ef4444' }}>{error}</p>}
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
         <button
           type="submit"
           disabled={isPending || !front.trim() || !back.trim()}
-          className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+          style={{
+            padding: '8px 16px',
+            borderRadius: 8,
+            border: 'none',
+            background: 'var(--primary)',
+            color: 'var(--primary-foreground)',
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: 'pointer',
+            opacity: isPending ? 0.6 : 1,
+          }}
         >
           {isPending ? 'Creating…' : 'Create Card'}
         </button>
         <button
           type="button"
           onClick={reset}
-          className="rounded-md px-3 py-2 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+          style={{
+            padding: '8px 14px',
+            borderRadius: 8,
+            border: '1px solid var(--border)',
+            background: 'transparent',
+            color: 'var(--foreground)',
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
         >
           Cancel
         </button>
       </div>
     </form>
   )
+}
+
+function ColorSwatch({
+  color,
+  selected,
+  onClick,
+}: {
+  color: string | null
+  selected: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={color ?? 'None'}
+      style={{
+        width: 24,
+        height: 24,
+        borderRadius: '50%',
+        border: `2px solid ${selected ? 'var(--foreground)' : 'transparent'}`,
+        background: color ?? 'var(--muted)',
+        cursor: 'pointer',
+        padding: 0,
+      }}
+    />
+  )
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '8px 12px',
+  borderRadius: 8,
+  border: '1px solid var(--border)',
+  background: 'var(--background)',
+  color: 'var(--foreground)',
+  fontSize: 14,
+  fontFamily: 'inherit',
+  resize: 'vertical',
+  outline: 'none',
+  boxSizing: 'border-box',
+}
+
+const overlineStyle: React.CSSProperties = {
+  margin: '0 0 6px',
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '0.06em',
+  color: 'var(--muted-foreground)',
+  textTransform: 'uppercase',
 }

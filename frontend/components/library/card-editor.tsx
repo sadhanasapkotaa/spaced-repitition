@@ -82,8 +82,12 @@ export default function CardEditor({ card, allTags, onCancel, onSaved }: Props) 
         flexDirection: 'column',
         gap: 10,
         padding: 16,
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
+        background: color
+          ? `color-mix(in srgb, ${color} 14%, var(--card))`
+          : 'var(--card)',
+        border: `1px solid ${color
+          ? `color-mix(in srgb, ${color} 35%, var(--border))`
+          : 'var(--border)'}`,
         borderRadius: 12,
         borderLeft: color ? `4px solid ${color}` : '1px solid var(--border)',
       }}

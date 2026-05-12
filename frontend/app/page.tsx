@@ -18,7 +18,7 @@ export default async function Home() {
       background: 'var(--background)',
     }}>
       <Header />
-      <Hero />
+      <Hero />  
       <Features />
       <Footer />
     </div>
