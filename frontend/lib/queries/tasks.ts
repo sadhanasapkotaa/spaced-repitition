@@ -86,9 +86,16 @@ export async function getCompletionsForTasks(
   return out
 }
 
-// Today as 'YYYY-MM-DD' (UTC — matches what we use as RLS reference).
-export function todayDateStr(): string {
-  return new Date().toISOString().slice(0, 10)
+// "Today" in Asia/Kathmandu. The day boundary for task check-offs is
+// midnight Nepal Time (UTC+05:45) — matches Postgres `nepal_today()` used
+// by the RLS policy on task_completions.
+export function todayDateStr(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kathmandu',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now)
 }
 
 function addDays(dateStr: string, n: number): string {

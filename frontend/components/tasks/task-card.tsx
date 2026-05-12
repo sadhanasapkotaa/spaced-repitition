@@ -81,12 +81,12 @@ export default function TaskCard({ task, doneToday, streak }: Props) {
           height: 22,
           borderRadius: '50%',
           border: doneToday ? 'none' : '2px solid var(--border)',
-          background: doneToday ? '#22c55e' : 'transparent',
+          background: doneToday ? 'var(--foreground)' : 'transparent',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          color: '#fff',
+          color: 'var(--background)',
           fontSize: 11,
           fontWeight: 700,
           transition: 'background 0.15s, border-color 0.15s',
@@ -121,7 +121,8 @@ export default function TaskCard({ task, doneToday, streak }: Props) {
           alignItems: 'center',
         }}>
           {streak > 0 && (
-            <span style={{ color: '#16a34a', fontWeight: 600 }}>
+            <span style={{ color: 'var(--foreground)', fontWeight: 600 }}>
+              <span aria-hidden="true" style={{ marginRight: 4 }}>🔥</span>
               {streak}d streak
             </span>
           )}

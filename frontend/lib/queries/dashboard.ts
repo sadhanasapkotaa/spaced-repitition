@@ -126,12 +126,14 @@ export async function getDashboardData(): Promise<DashboardData> {
       .from('card_reviews')
       .select('*', { count: 'exact', head: true })
       .gte('reviewed_at', startOfDay),
+    // Load *all* tasks (no limit) — the daily streak rule requires every
+    // active task to be checked off, so we cannot evaluate it from a slice.
+    // The dashboard's "Active tasks" list still trims to a few below.
     supabase
       .from('tasks')
       .select('id, name, due_date, start_date, created_at')
       .eq('is_completed', false)
-      .order('due_date', { ascending: true, nullsFirst: false })
-      .limit(8),
+      .order('due_date', { ascending: true, nullsFirst: false }),
   ])
 
   const tasks = tasksRes.data ?? []
@@ -151,7 +153,8 @@ export async function getDashboardData(): Promise<DashboardData> {
     ])
 
     const byId = new Map(progressRes.data?.map(p => [p.task_id, p.due_cards]) ?? [])
-    activeTasks = tasks.map(t => ({
+    // Display the next 8 by due date; streak math below uses the full set.
+    activeTasks = tasks.slice(0, 8).map(t => ({
       id: t.id, name: t.name, due_date: t.due_date, due_cards: byId.get(t.id) ?? 0,
     }))
 

@@ -18,8 +18,11 @@ interface Props {
   completions: string[]   // ascending 'YYYY-MM-DD'
 }
 
-function todayUtc(): string {
-  return new Date().toISOString().slice(0, 10)
+function todayNepal(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kathmandu',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date())
 }
 
 function daysBetween(start: string, end: string): number {
@@ -99,7 +102,7 @@ export default function TaskDetail({
   const canReview = selected.size > 0 && !task.is_completed
 
   // Done/missed ratio over the task's active window.
-  const today = todayUtc()
+  const today = todayNepal()
   const rawStart = (task.start_date ?? task.created_at).slice(0, 10)
   const chartStart = rawStart > today ? today : rawStart
   const chartEnd = task.due_date && task.due_date < today ? task.due_date : today
