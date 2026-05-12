@@ -58,7 +58,7 @@ export function Sidebar({ signOut }: { signOut: () => void }) {
         }}>
           ✦
         </span>
-        Spaced
+        monk
       </div>
 
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
