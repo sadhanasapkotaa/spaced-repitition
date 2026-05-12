@@ -34,6 +34,7 @@ export default function RegisterPage() {
         data: {
           username: form.get('username') as string,
         },
+        emailRedirectTo: `${window.location.origin}/dashboard`,
       },
     })
 
