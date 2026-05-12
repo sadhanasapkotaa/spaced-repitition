@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { getAppUser } from '@/utils/supabase/auth'
-import { computeStreak, todayDateStr, getCompletionsForTasks } from './tasks'
+import { todayDateStr, getCompletionsForTasks } from './tasks'
 
 export interface DashboardData {
   dueCount: number
@@ -19,14 +19,88 @@ export interface ActiveTask {
   due_cards: number
 }
 
+// Per-task summary for the dashboard chart: total days the task has been
+// active vs. how many of those days were checked off. The bar collapses
+// these to a single done/missed ratio.
 export interface TaskChart {
   id: string
   name: string
-  start_date: string         // 'YYYY-MM-DD'
-  end_date: string           // 'YYYY-MM-DD' (today, or due_date if it has passed)
-  completions: Set<string>   // dates marked done
-  streak: number
+  doneDays: number
+  totalDays: number
   doneToday: boolean
+}
+
+function addUtcDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+function daysBetween(start: string, end: string): number {
+  if (start > end) return 0
+  const a = new Date(start + 'T00:00:00Z').getTime()
+  const b = new Date(end   + 'T00:00:00Z').getTime()
+  return Math.round((b - a) / 86_400_000) + 1
+}
+
+// Daily streak across *all* tasks: a day counts only when every task that
+// was active that day was checked off. Days with no active tasks are
+// skipped (neutral — can't fail when there's nothing to do).
+interface TaskWindow {
+  id: string
+  start: string                     // 'YYYY-MM-DD' inclusive
+  end: string | null                // due_date inclusive, null = open-ended
+  completions: Set<string>
+}
+
+function evaluateDay(day: string, windows: TaskWindow[]): 'done' | 'missed' | 'inactive' {
+  let active = 0
+  for (const w of windows) {
+    if (day < w.start) continue
+    if (w.end && day > w.end) continue
+    active++
+    if (!w.completions.has(day)) return 'missed'
+  }
+  return active === 0 ? 'inactive' : 'done'
+}
+
+function computeAllTasksDailyStreak(
+  windows: TaskWindow[],
+  today: string,
+): { current: number; longest: number } {
+  if (windows.length === 0) return { current: 0, longest: 0 }
+
+  const earliest = windows.reduce((m, w) => w.start < m ? w.start : m, windows[0].start)
+
+  // Current streak: walk back from today; allow today to be "not done yet"
+  // by falling through to yesterday once, so a fresh morning doesn't reset it.
+  let current = 0
+  {
+    let cursor = today
+    let allowedSkip = true
+    while (cursor >= earliest) {
+      const r = evaluateDay(cursor, windows)
+      if (r === 'done') { current++; allowedSkip = false }
+      else if (r === 'missed') {
+        if (allowedSkip && cursor === today) { allowedSkip = false }
+        else break
+      }
+      // 'inactive': skip silently
+      cursor = addUtcDays(cursor, -1)
+    }
+  }
+
+  // Longest: scan full range.
+  let longest = 0
+  let run = 0
+  for (let day = earliest; day <= today; day = addUtcDays(day, 1)) {
+    const r = evaluateDay(day, windows)
+    if (r === 'done') { run++; if (run > longest) longest = run }
+    else if (r === 'missed') run = 0
+    // 'inactive': neither break nor count
+  }
+
+  return { current, longest }
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
@@ -38,16 +112,11 @@ export async function getDashboardData(): Promise<DashboardData> {
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
   const nowIso = now.toISOString()
 
-  const [dueRes, streakRes, settingsRes, todayRes, tasksRes] = await Promise.all([
+  const [dueRes, settingsRes, todayRes, tasksRes] = await Promise.all([
     supabase
       .from('cards')
       .select('*', { count: 'exact', head: true })
       .lte('next_review_time', nowIso),
-    supabase
-      .from('user_streaks')
-      .select('current_streak, longest_streak')
-      .eq('id', userId)
-      .maybeSingle(),
     supabase
       .from('user_settings')
       .select('daily_goal')
@@ -65,12 +134,14 @@ export async function getDashboardData(): Promise<DashboardData> {
       .limit(8),
   ])
 
-  // For each active task, count due cards via task_progress view
   const tasks = tasksRes.data ?? []
+  const today = todayDateStr()
   let activeTasks: ActiveTask[] = tasks.map(t => ({
     id: t.id, name: t.name, due_date: t.due_date, due_cards: 0,
   }))
   let taskCharts: TaskChart[] = []
+  let currentStreak = 0
+  let longestStreak = 0
 
   if (tasks.length > 0) {
     const ids = tasks.map(t => t.id)
@@ -84,30 +155,45 @@ export async function getDashboardData(): Promise<DashboardData> {
       id: t.id, name: t.name, due_date: t.due_date, due_cards: byId.get(t.id) ?? 0,
     }))
 
-    const today = todayDateStr()
-    taskCharts = tasks.map(t => {
-      const start = (t.start_date ?? t.created_at).slice(0, 10)
-      // Clamp start to today if it's in the future (haven't started yet).
-      const start_date = start > today ? today : start
-      // End at today, or due_date if it has already passed.
-      const end_date = t.due_date && t.due_date < today ? t.due_date : today
-      const completions = new Set(completionsByTask.get(t.id) ?? [])
+    // Build active windows for streak + chart math.
+    const windows: TaskWindow[] = tasks.map(t => {
+      const rawStart = (t.start_date ?? t.created_at).slice(0, 10)
       return {
         id: t.id,
-        name: t.name,
-        start_date,
-        end_date,
-        completions,
-        streak: computeStreak(Array.from(completions), today),
-        doneToday: completions.has(today),
+        start: rawStart > today ? today : rawStart,
+        end: t.due_date,
+        completions: new Set(completionsByTask.get(t.id) ?? []),
       }
     })
+
+    // Per-task chart summary (done vs missed ratio over the task's window).
+    taskCharts = windows.map(w => {
+      const tName = tasks.find(t => t.id === w.id)!.name
+      const end = w.end && w.end < today ? w.end : today
+      const totalDays = daysBetween(w.start, end)
+      // Count completions that fall inside the [start, end] window.
+      let doneDays = 0
+      for (const c of w.completions) {
+        if (c >= w.start && c <= end) doneDays++
+      }
+      return {
+        id: w.id,
+        name: tName,
+        doneDays,
+        totalDays,
+        doneToday: w.completions.has(today),
+      }
+    })
+
+    const streaks = computeAllTasksDailyStreak(windows, today)
+    currentStreak = streaks.current
+    longestStreak = streaks.longest
   }
 
   return {
     dueCount: dueRes.count ?? 0,
-    currentStreak: streakRes.data?.current_streak ?? 0,
-    longestStreak: streakRes.data?.longest_streak ?? 0,
+    currentStreak,
+    longestStreak,
     dailyGoal: settingsRes.data?.daily_goal ?? 20,
     reviewedToday: todayRes.count ?? 0,
     activeTasks,

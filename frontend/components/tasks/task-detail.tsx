@@ -6,6 +6,7 @@ import { assignFoldersToTask, setTaskDoneToday } from '@/lib/actions/tasks'
 import { startSession } from '@/lib/actions/review'
 import type { FolderWithPath } from '@/lib/queries/folders'
 import type { TaskRow, TaskProgress } from '@/types/database'
+import { TaskRatioBar, taskBarColors } from './task-ratio-bar'
 
 interface Props {
   task: TaskRow
@@ -17,17 +18,15 @@ interface Props {
   completions: string[]   // ascending 'YYYY-MM-DD'
 }
 
-const GREEN = '#22c55e'
-const RED   = '#ef4444'
-
-function addUtcDays(dateStr: string, n: number): string {
-  const d = new Date(dateStr + 'T00:00:00Z')
-  d.setUTCDate(d.getUTCDate() + n)
-  return d.toISOString().slice(0, 10)
-}
-
 function todayUtc(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+function daysBetween(start: string, end: string): number {
+  if (start > end) return 0
+  const a = new Date(start + 'T00:00:00Z').getTime()
+  const b = new Date(end   + 'T00:00:00Z').getTime()
+  return Math.round((b - a) / 86_400_000) + 1
 }
 
 export default function TaskDetail({
@@ -99,17 +98,16 @@ export default function TaskDetail({
 
   const canReview = selected.size > 0 && !task.is_completed
 
-  // Daily check-off chart range: task.start_date (or created_at) → today,
-  // capped at due_date if it has already passed.
+  // Done/missed ratio over the task's active window.
   const today = todayUtc()
   const rawStart = (task.start_date ?? task.created_at).slice(0, 10)
   const chartStart = rawStart > today ? today : rawStart
   const chartEnd = task.due_date && task.due_date < today ? task.due_date : today
+  const totalDays = daysBetween(chartStart, chartEnd)
   const completionSet = new Set(completions)
-  const chartDays: { date: string; done: boolean }[] = []
-  for (let d = chartStart; d <= chartEnd; d = addUtcDays(d, 1)) {
-    chartDays.push({ date: d, done: completionSet.has(d) })
-  }
+  let doneDays = 0
+  for (const c of completionSet) if (c >= chartStart && c <= chartEnd) doneDays++
+  const pct = totalDays > 0 ? Math.round((doneDays / totalDays) * 100) : 0
 
   return (
     <div style={{ maxWidth: 620, margin: '0 auto', padding: '32px 16px 80px' }}>
@@ -192,68 +190,56 @@ export default function TaskDetail({
         </div>
       </div>
 
-      {/* Daily check-off streak + chart */}
+      {/* Daily check-off ratio + streak */}
       <div style={{
         background: 'var(--card)',
         border: '1px solid var(--border)',
-        borderRadius: 16,
-        padding: '18px 22px',
+        borderRadius: 14,
+        padding: '16px 20px',
         marginBottom: 20,
       }}>
         <div style={{
           display: 'flex',
           alignItems: 'baseline',
           justifyContent: 'space-between',
-          marginBottom: 10,
           gap: 12,
+          marginBottom: 8,
           flexWrap: 'wrap',
         }}>
-          <div>
-            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>
-              Daily streak
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <p style={{
+              margin: 0, fontSize: 11, fontWeight: 600,
+              letterSpacing: '0.08em', color: 'var(--muted-foreground)',
+              textTransform: 'uppercase',
+            }}>
+              Streak
             </p>
-            <p style={{ margin: '4px 0 0', fontSize: 20, fontWeight: 800 }}>
-              {streak > 0 ? (
-                <>🔥 {streak}<span style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted-foreground)' }}> day{streak === 1 ? '' : 's'}</span></>
-              ) : (
-                <span style={{ color: 'var(--muted-foreground)', fontSize: 14, fontWeight: 600 }}>No streak yet</span>
-              )}
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>
+              {streak > 0
+                ? <>{streak}<span style={{ fontSize: 12, fontWeight: 500, color: 'var(--muted-foreground)' }}> day{streak === 1 ? '' : 's'}</span></>
+                : <span style={{ color: 'var(--muted-foreground)', fontSize: 12, fontWeight: 500 }}>none</span>}
             </p>
           </div>
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted-foreground)', fontVariantNumeric: 'tabular-nums' }}>
-            {completions.length}/{chartDays.length} days completed
+          <p style={{
+            margin: 0, fontSize: 11, color: 'var(--muted-foreground)',
+            fontVariantNumeric: 'tabular-nums',
+          }}>
+            {doneDays}/{totalDays} · {pct}%
           </p>
         </div>
 
-        {chartDays.length > 0 ? (
-          <div
-            style={{ display: 'flex', gap: 2, height: 16, borderRadius: 4, overflow: 'hidden' }}
-            role="img"
-            aria-label={`${completions.length} of ${chartDays.length} days completed`}
-          >
-            {chartDays.map(d => (
-              <div
-                key={d.date}
-                title={`${d.date} — ${d.done ? 'done' : 'missed'}`}
-                style={{
-                  flex: 1,
-                  minWidth: 2,
-                  background: d.done ? GREEN : RED,
-                  opacity: d.done ? 1 : 0.55,
-                  borderRadius: 2,
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
-            Chart starts on {chartStart}.
-          </p>
-        )}
+        <TaskRatioBar doneDays={doneDays} totalDays={totalDays} />
 
-        <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 11, color: 'var(--muted-foreground)' }}>
-          <LegendSwatch color={GREEN} label="done" />
-          <LegendSwatch color={RED}   label="missed" />
+        <div style={{
+          display: 'flex',
+          gap: 12,
+          marginTop: 10,
+          fontSize: 10.5,
+          color: 'var(--muted-foreground)',
+          letterSpacing: '0.02em',
+        }}>
+          <LegendSwatch color={taskBarColors.done}   label="done" />
+          <LegendSwatch color={taskBarColors.missed} label="missed" />
           <span style={{ marginLeft: 'auto', fontStyle: 'italic' }}>
             Past days are locked.
           </span>

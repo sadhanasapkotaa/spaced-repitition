@@ -121,8 +121,8 @@ export default function TaskCard({ task, doneToday, streak }: Props) {
           alignItems: 'center',
         }}>
           {streak > 0 && (
-            <span style={{ color: '#22c55e', fontWeight: 700 }}>
-              🔥 {streak}d streak
+            <span style={{ color: '#16a34a', fontWeight: 600 }}>
+              {streak}d streak
             </span>
           )}
           {due.label && (
