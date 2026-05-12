@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getAppUser } from '@/utils/supabase/auth'
 import { getDashboardData } from '@/lib/queries/dashboard'
+import TaskStreakChart from '@/components/tasks/task-streak-chart'
 
 export const dynamic = 'force-dynamic'
 
@@ -139,6 +140,9 @@ export default async function DashboardPage() {
           </div>
         )}
       </section>
+
+      {/* Per-task daily-streak chart */}
+      <TaskStreakChart tasks={data.taskCharts} />
     </div>
   )
 }

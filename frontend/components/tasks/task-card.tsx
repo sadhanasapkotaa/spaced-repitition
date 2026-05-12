@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { setTaskCompleted, deleteTask } from '@/lib/actions/tasks'
+import { setTaskDoneToday, deleteTask } from '@/lib/actions/tasks'
 import type { TaskRow } from '@/types/database'
 
 interface Props {
   task: TaskRow
+  doneToday: boolean
+  streak: number
 }
 
 function getDueMeta(dueDate: string | null): {
@@ -36,13 +38,13 @@ function getDueMeta(dueDate: string | null): {
   }
 }
 
-export default function TaskCard({ task }: Props) {
+export default function TaskCard({ task, doneToday, streak }: Props) {
   const [isPending, startTransition] = useTransition()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const due = getDueMeta(task.due_date)
 
   function handleToggle() {
-    startTransition(() => setTaskCompleted(task.id, !task.is_completed))
+    startTransition(() => setTaskDoneToday(task.id, !doneToday))
   }
 
   function handleDelete(e: React.MouseEvent) {
@@ -68,18 +70,18 @@ export default function TaskCard({ task }: Props) {
       onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.07)')}
       onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
     >
-      {/* Completion toggle */}
+      {/* Today's check-off (only today is editable; past days are locked) */}
       <button
         onClick={handleToggle}
         disabled={isPending}
-        title={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
+        title={doneToday ? "Undo today's check-off" : 'Mark done for today'}
         style={{
           flexShrink: 0,
           width: 22,
           height: 22,
           borderRadius: '50%',
-          border: task.is_completed ? 'none' : '2px solid var(--border)',
-          background: task.is_completed ? '#22c55e' : 'transparent',
+          border: doneToday ? 'none' : '2px solid var(--border)',
+          background: doneToday ? '#22c55e' : 'transparent',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -90,10 +92,10 @@ export default function TaskCard({ task }: Props) {
           transition: 'background 0.15s, border-color 0.15s',
         }}
       >
-        {task.is_completed ? '✓' : ''}
+        {doneToday ? '✓' : ''}
       </button>
 
-      {/* Name + due */}
+      {/* Name + due + streak */}
       <Link
         href={`/tasks/${task.id}`}
         style={{ flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
@@ -102,8 +104,7 @@ export default function TaskCard({ task }: Props) {
           margin: 0,
           fontWeight: 600,
           fontSize: 15,
-          color: task.is_completed ? 'var(--muted-foreground)' : 'var(--foreground)',
-          textDecoration: task.is_completed ? 'line-through' : 'none',
+          color: 'var(--foreground)',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
@@ -111,16 +112,28 @@ export default function TaskCard({ task }: Props) {
           {task.name}
         </p>
 
-        {due.label && (
-          <p style={{
-            margin: '3px 0 0',
-            fontSize: 12,
-            color: task.is_completed ? 'var(--muted-foreground)' : due.color,
-            fontWeight: due.urgency === 'fine' || due.urgency === 'none' ? 400 : 600,
-          }}>
-            {due.label}
-          </p>
-        )}
+        <p style={{
+          margin: '3px 0 0',
+          fontSize: 12,
+          display: 'flex',
+          gap: 10,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}>
+          {streak > 0 && (
+            <span style={{ color: '#22c55e', fontWeight: 700 }}>
+              🔥 {streak}d streak
+            </span>
+          )}
+          {due.label && (
+            <span style={{
+              color: due.color,
+              fontWeight: due.urgency === 'fine' || due.urgency === 'none' ? 400 : 600,
+            }}>
+              {due.label}
+            </span>
+          )}
+        </p>
       </Link>
 
       {/* Delete */}

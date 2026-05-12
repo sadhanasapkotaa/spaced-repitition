@@ -191,6 +191,32 @@ export type Database = {
         }
         Relationships: []
       }
+      task_completions: {
+        Row: {
+          task_id: string
+          completed_on: string
+          completed_at: string
+        }
+        Insert: {
+          task_id: string
+          completed_on?: string
+          completed_at?: string
+        }
+        Update: {
+          task_id?: string
+          completed_on?: string
+          completed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'task_completions_task_id_fkey'
+            columns: ['task_id']
+            isOneToOne: false
+            referencedRelation: 'tasks'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       task_folders: {
         Row: {
           task_id: string
@@ -408,6 +434,7 @@ export type FolderRow = Database['public']['Tables']['folders']['Row']
 export type CardRow = Database['public']['Tables']['cards']['Row']
 export type TagRow = Database['public']['Tables']['tags']['Row']
 export type TaskRow = Database['public']['Tables']['tasks']['Row']
+export type TaskCompletionRow = Database['public']['Tables']['task_completions']['Row']
 export type ReviewSessionRow = Database['public']['Tables']['review_sessions']['Row']
 export type CardReviewRow = Database['public']['Tables']['card_reviews']['Row']
 export type UserSettingsRow = Database['public']['Tables']['user_settings']['Row']

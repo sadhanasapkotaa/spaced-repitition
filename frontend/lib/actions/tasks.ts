@@ -44,16 +44,32 @@ export async function updateTask(id: string, payload: Partial<TaskPayload>) {
   revalidatePath(`/tasks/${id}`)
 }
 
-export async function setTaskCompleted(id: string, completed: boolean) {
+// Mark a task as done for *today*. Past days are immutable — the server
+// (via Postgres default + RLS) only ever writes `completed_on = current_date`.
+// Passing `done=false` clears today's row only; yesterday's missed day stays
+// missed forever.
+export async function setTaskDoneToday(id: string, done: boolean) {
   const supabase = await createClient()
 
-  const { error } = await supabase
-    .from('tasks')
-    .update({ is_completed: completed })
-    .eq('id', id)
-  if (error) throw error
+  if (done) {
+    // completed_on defaults to current_date in Postgres; RLS rejects any
+    // other value, so the client cannot backfill missed days.
+    const { error } = await supabase
+      .from('task_completions')
+      .upsert({ task_id: id }, { onConflict: 'task_id,completed_on' })
+    if (error) throw error
+  } else {
+    const todayUtc = new Date().toISOString().slice(0, 10)
+    const { error } = await supabase
+      .from('task_completions')
+      .delete()
+      .eq('task_id', id)
+      .eq('completed_on', todayUtc)
+    if (error) throw error
+  }
 
   revalidatePath('/tasks')
+  revalidatePath('/dashboard')
   revalidatePath(`/tasks/${id}`)
 }
 

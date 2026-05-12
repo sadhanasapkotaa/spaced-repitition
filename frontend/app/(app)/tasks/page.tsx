@@ -1,12 +1,35 @@
-import { getTasks } from '@/lib/queries/tasks'
+import {
+  getTasks,
+  getCompletionsForTasks,
+  computeStreak,
+  todayDateStr,
+} from '@/lib/queries/tasks'
 import TaskCard from '@/components/tasks/task-card'
 import TaskForm from '@/components/tasks/task-form'
 
+export const dynamic = 'force-dynamic'
+
 export default async function TasksPage() {
   const tasks = await getTasks()
+  const completionsByTask = await getCompletionsForTasks(tasks.map(t => t.id))
+  const today = todayDateStr()
 
-  const active    = tasks.filter(t => !t.is_completed)
-  const completed = tasks.filter(t =>  t.is_completed)
+  const active = tasks.filter(t => !t.is_completed).map(t => {
+    const dates = completionsByTask.get(t.id) ?? []
+    return {
+      task: t,
+      doneToday: dates.includes(today),
+      streak: computeStreak(dates, today),
+    }
+  })
+  const completed = tasks.filter(t => t.is_completed).map(t => {
+    const dates = completionsByTask.get(t.id) ?? []
+    return {
+      task: t,
+      doneToday: dates.includes(today),
+      streak: computeStreak(dates, today),
+    }
+  })
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 16px' }}>
@@ -45,8 +68,8 @@ export default async function TasksPage() {
         <section style={{ marginBottom: 40 }}>
           <SectionLabel text="Active" count={active.length} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {active.map(task => (
-              <TaskCard key={task.id} task={task} />
+            {active.map(({ task, doneToday, streak }) => (
+              <TaskCard key={task.id} task={task} doneToday={doneToday} streak={streak} />
             ))}
           </div>
         </section>
@@ -57,8 +80,8 @@ export default async function TasksPage() {
         <section>
           <SectionLabel text="Completed" count={completed.length} muted />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, opacity: 0.65 }}>
-            {completed.map(task => (
-              <TaskCard key={task.id} task={task} />
+            {completed.map(({ task, doneToday, streak }) => (
+              <TaskCard key={task.id} task={task} doneToday={doneToday} streak={streak} />
             ))}
           </div>
         </section>

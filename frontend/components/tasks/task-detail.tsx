@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { assignFoldersToTask, setTaskCompleted } from '@/lib/actions/tasks'
+import { assignFoldersToTask, setTaskDoneToday } from '@/lib/actions/tasks'
 import { startSession } from '@/lib/actions/review'
 import type { FolderWithPath } from '@/lib/queries/folders'
 import type { TaskRow, TaskProgress } from '@/types/database'
@@ -12,9 +12,33 @@ interface Props {
   progress: TaskProgress | null
   assignedFolderIds: string[]
   allFolders: FolderWithPath[]
+  doneToday: boolean
+  streak: number
+  completions: string[]   // ascending 'YYYY-MM-DD'
 }
 
-export default function TaskDetail({ task, progress, assignedFolderIds, allFolders }: Props) {
+const GREEN = '#22c55e'
+const RED   = '#ef4444'
+
+function addUtcDays(dateStr: string, n: number): string {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+export default function TaskDetail({
+  task,
+  progress,
+  assignedFolderIds,
+  allFolders,
+  doneToday,
+  streak,
+  completions,
+}: Props) {
   const router = useRouter()
   const [selected,    setSelected]    = useState<Set<string>>(new Set(assignedFolderIds))
   const [editFolders, setEditFolders] = useState(false)
@@ -74,6 +98,18 @@ export default function TaskDetail({ task, progress, assignedFolderIds, allFolde
   })()
 
   const canReview = selected.size > 0 && !task.is_completed
+
+  // Daily check-off chart range: task.start_date (or created_at) → today,
+  // capped at due_date if it has already passed.
+  const today = todayUtc()
+  const rawStart = (task.start_date ?? task.created_at).slice(0, 10)
+  const chartStart = rawStart > today ? today : rawStart
+  const chartEnd = task.due_date && task.due_date < today ? task.due_date : today
+  const completionSet = new Set(completions)
+  const chartDays: { date: string; done: boolean }[] = []
+  for (let d = chartStart; d <= chartEnd; d = addUtcDays(d, 1)) {
+    chartDays.push({ date: d, done: completionSet.has(d) })
+  }
 
   return (
     <div style={{ maxWidth: 620, margin: '0 auto', padding: '32px 16px 80px' }}>
@@ -135,23 +171,92 @@ export default function TaskDetail({ task, progress, assignedFolderIds, allFolde
           </div>
 
           <button
-            onClick={() => startToggle(() => setTaskCompleted(task.id, !task.is_completed))}
+            onClick={() => startToggle(() => setTaskDoneToday(task.id, !doneToday))}
             disabled={toggling}
+            title={doneToday ? "Undo today's check-off" : 'Mark done for today'}
             style={{
               flexShrink: 0,
               padding: '9px 18px',
               borderRadius: 10,
-              border: task.is_completed ? 'none' : '1px solid var(--border)',
-              background: task.is_completed ? '#22c55e' : 'transparent',
-              color: task.is_completed ? '#fff' : 'var(--foreground)',
+              border: doneToday ? 'none' : '1px solid var(--border)',
+              background: doneToday ? '#22c55e' : 'transparent',
+              color: doneToday ? '#fff' : 'var(--foreground)',
               fontWeight: 600,
               fontSize: 13,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}
           >
-            {task.is_completed ? '✓ Completed' : 'Mark complete'}
+            {doneToday ? '✓ Done today' : 'Mark done today'}
           </button>
+        </div>
+      </div>
+
+      {/* Daily check-off streak + chart */}
+      <div style={{
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
+        borderRadius: 16,
+        padding: '18px 22px',
+        marginBottom: 20,
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          marginBottom: 10,
+          gap: 12,
+          flexWrap: 'wrap',
+        }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>
+              Daily streak
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 20, fontWeight: 800 }}>
+              {streak > 0 ? (
+                <>🔥 {streak}<span style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted-foreground)' }}> day{streak === 1 ? '' : 's'}</span></>
+              ) : (
+                <span style={{ color: 'var(--muted-foreground)', fontSize: 14, fontWeight: 600 }}>No streak yet</span>
+              )}
+            </p>
+          </div>
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted-foreground)', fontVariantNumeric: 'tabular-nums' }}>
+            {completions.length}/{chartDays.length} days completed
+          </p>
+        </div>
+
+        {chartDays.length > 0 ? (
+          <div
+            style={{ display: 'flex', gap: 2, height: 16, borderRadius: 4, overflow: 'hidden' }}
+            role="img"
+            aria-label={`${completions.length} of ${chartDays.length} days completed`}
+          >
+            {chartDays.map(d => (
+              <div
+                key={d.date}
+                title={`${d.date} — ${d.done ? 'done' : 'missed'}`}
+                style={{
+                  flex: 1,
+                  minWidth: 2,
+                  background: d.done ? GREEN : RED,
+                  opacity: d.done ? 1 : 0.55,
+                  borderRadius: 2,
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--muted-foreground)' }}>
+            Chart starts on {chartStart}.
+          </p>
+        )}
+
+        <div style={{ display: 'flex', gap: 14, marginTop: 10, fontSize: 11, color: 'var(--muted-foreground)' }}>
+          <LegendSwatch color={GREEN} label="done" />
+          <LegendSwatch color={RED}   label="missed" />
+          <span style={{ marginLeft: 'auto', fontStyle: 'italic' }}>
+            Past days are locked.
+          </span>
         </div>
       </div>
 
@@ -428,6 +533,15 @@ function StatTile({
         {label}
       </p>
     </div>
+  )
+}
+
+function LegendSwatch({ color, label }: { color: string; label: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <span style={{ width: 10, height: 10, borderRadius: 2, background: color }} />
+      {label}
+    </span>
   )
 }
 
