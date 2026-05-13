@@ -154,19 +154,22 @@ export async function getDashboardData(): Promise<DashboardData> {
 
     const byId = new Map(progressRes.data?.map(p => [p.task_id, p.due_cards]) ?? [])
 
-    // Build active windows for streak + chart math.
-    const windows: TaskWindow[] = tasks.map(t => {
-      const rawStart = (t.start_date ?? t.created_at).slice(0, 10)
-      return {
-        id: t.id,
-        start: rawStart > today ? today : rawStart,
-        end: t.due_date,
-        completions: new Set(completionsByTask.get(t.id) ?? []),
-      }
-    })
+    // Build per-task windows. `start` is the *actual* start date (no clamping
+    // to today). A future-start task is therefore 'inactive' today — it
+    // cannot drop the all-tasks-done streak just because the user hasn't
+    // (and shouldn't have) checked it off yet.
+    const windows: TaskWindow[] = tasks.map(t => ({
+      id: t.id,
+      start: (t.start_date ?? t.created_at).slice(0, 10),
+      end: t.due_date,
+      completions: new Set(completionsByTask.get(t.id) ?? []),
+    }))
     const windowById = new Map(windows.map(w => [w.id, w]))
 
-    // For each task, count done/total days within its active window.
+    // For each task, count done/total days within its active window
+    // intersected with [start, today/due_date]. Future-start tasks naturally
+    // get totalDays = 0 here (start > end), which the bar renders as an
+    // empty rail.
     const ratioFor = (id: string): { doneDays: number; totalDays: number } => {
       const w = windowById.get(id)!
       const end = w.end && w.end < today ? w.end : today
