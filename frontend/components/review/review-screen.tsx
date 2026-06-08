@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { buildSessionQueue } from '@/utils/sr-algorithm'
 import { gradeCard, endSession } from '@/lib/actions/review'
@@ -49,13 +49,18 @@ const HINT = {
 export default function ReviewScreen({ cards, sessionId, folderName, folderPath }: Props) {
   const router = useRouter()
 
-  // Build the queue once on mount
-  const queue = buildSessionQueue(
-    cards.map(c => ({
-      ...c,
-      next_review_time: c.next_review_time ? new Date(c.next_review_time) : null,
-      created_at: new Date(c.created_at),
-    })),
+  // Build the queue once — memoized so dragging (which fires setDrag on every
+  // pointer-move) doesn't re-run the whole SR algorithm on every frame.
+  const queue = useMemo(
+    () =>
+      buildSessionQueue(
+        cards.map(c => ({
+          ...c,
+          next_review_time: c.next_review_time ? new Date(c.next_review_time) : null,
+          created_at: new Date(c.created_at),
+        })),
+      ),
+    [cards],
   )
 
   const [index,   setIndex]   = useState(0)
@@ -71,6 +76,8 @@ export default function ReviewScreen({ cards, sessionId, folderName, folderPath 
   const cardRef    = useRef<HTMLDivElement>(null)
   const startRef   = useRef<{ x: number; y: number; t: number } | null>(null)
   const draggedRef = useRef(false)   // true if pointer moved past tap threshold
+  const rafRef     = useRef<number | null>(null)
+  const pendingRef = useRef<{ x: number; y: number } | null>(null)
 
   // Derived
   const current  = queue[index]?.card ?? null
@@ -84,33 +91,43 @@ export default function ReviewScreen({ cards, sessionId, folderName, folderPath 
 
   // ── Grade a card ────────────────────────────────────────────────────────────
 
-  const grade = useCallback(async (outcome: ReviewOutcome) => {
+  const grade = useCallback((outcome: ReviewOutcome) => {
     if (!current || grading) return
     setGrading(true)
-
     setFlying(outcome)
-    await sleep(300)
 
-    await gradeCard(current.id, sessionId, outcome, {
-      difficulty:      current.difficulty,
-      repeat_interval: current.repeat_interval,
-      review_count:    current.review_count,
-    })
+    const card      = current
+    const nextIndex = index + 1
+    const isLast    = nextIndex >= queue.length
+
+    // Fire the network calls in the background — don't block the UI on them.
+    void (async () => {
+      try {
+        await gradeCard(card.id, sessionId, outcome, {
+          difficulty:      card.difficulty,
+          repeat_interval: card.repeat_interval,
+          review_count:    card.review_count,
+        })
+        if (isLast) await endSession(sessionId)
+      } catch (err) {
+        console.error('Failed to grade card', err)
+      }
+    })()
 
     setSummary(s => ({ ...s, [outcome]: s[outcome] + 1 }))
 
-    const nextIndex = index + 1
-    if (nextIndex >= queue.length) {
-      await endSession(sessionId)
-      setDone(true)
-    } else {
-      setIndex(nextIndex)
-      setFlipped(false)
-      setDrag({ x: 0, y: 0 })
-      setFlying(null)
-    }
-
-    setGrading(false)
+    // Advance the UI after the fly-off animation only (independent of network).
+    window.setTimeout(() => {
+      if (isLast) {
+        setDone(true)
+      } else {
+        setIndex(nextIndex)
+        setFlipped(false)
+        setDrag({ x: 0, y: 0 })
+        setFlying(null)
+      }
+      setGrading(false)
+    }, 300)
   }, [current, grading, index, queue.length, sessionId])
 
   // ── Pointer handlers ────────────────────────────────────────────────────────
@@ -128,11 +145,26 @@ export default function ReviewScreen({ cards, sessionId, folderName, folderPath 
     if (Math.abs(dx) > DRAG_MOVE_CUTOFF || Math.abs(dy) > DRAG_MOVE_CUTOFF) {
       draggedRef.current = true
     }
-    setDrag({ x: dx, y: dy })
+    // Coalesce moves to one state update per animation frame to avoid
+    // re-rendering the tree faster than the screen can paint.
+    pendingRef.current = { x: dx, y: dy }
+    if (rafRef.current == null) {
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null
+        if (pendingRef.current) setDrag(pendingRef.current)
+      })
+    }
   }, [])
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     if (!startRef.current) return
+
+    // Drop any queued move so it can't override the reset/fly-off below.
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    pendingRef.current = null
 
     const dx = e.clientX - startRef.current.x
     const dy = e.clientY - startRef.current.y
@@ -181,6 +213,11 @@ export default function ReviewScreen({ cards, sessionId, folderName, folderPath 
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [flipped, grade])
+
+  // Cancel any pending drag frame on unmount
+  useEffect(() => () => {
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+  }, [])
 
   // ── Fly-off transform ───────────────────────────────────────────────────────
 
@@ -578,10 +615,4 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15,
     cursor: 'pointer',
   },
-}
-
-// ─── Util ─────────────────────────────────────────────────────────────────────
-
-function sleep(ms: number) {
-  return new Promise<void>(resolve => setTimeout(resolve, ms))
 }
