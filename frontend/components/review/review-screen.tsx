@@ -25,6 +25,8 @@ interface Card {
 interface Props {
   cards: Card[]
   sessionId: string
+  folderName?: string
+  folderPath?: string
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -44,7 +46,7 @@ const HINT = {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function ReviewScreen({ cards, sessionId }: Props) {
+export default function ReviewScreen({ cards, sessionId, folderName, folderPath }: Props) {
   const router = useRouter()
 
   // Build the queue once on mount
@@ -261,11 +263,20 @@ export default function ReviewScreen({ cards, sessionId }: Props) {
         <div style={{ ...styles.progressFill, width: `${progress}%` }} />
       </div>
 
-      {/* Counter */}
-      <div style={styles.counter}>
-        <span style={styles.counterCurrent}>{index + 1}</span>
-        <span style={styles.counterSep}> / </span>
-        <span>{queue.length}</span>
+      {/* Folder context and counter */}
+      <div style={styles.topBar}>
+        {folderName && (
+          <div style={styles.folderContext}>
+            <p style={styles.folderContextText}>
+              {folderPath}
+            </p>
+          </div>
+        )}
+        <div style={styles.counter}>
+          <span style={styles.counterCurrent}>{index + 1}</span>
+          <span style={styles.counterSep}> / </span>
+          <span>{queue.length}</span>
+        </div>
       </div>
 
       {/* Swipe hint badges */}
@@ -384,13 +395,31 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'var(--primary)',
     transition: 'width 0.4s ease',
   },
-  counter: {
+  topBar: {
     position: 'absolute',
     top: 16,
+    left: 20,
     right: 20,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    width: 'calc(100% - 40px)',
+  },
+  folderContext: {
+    maxWidth: '60%',
+  },
+  folderContextText: {
+    fontSize: 12,
+    color: 'var(--muted-foreground)',
+    margin: 0,
+    fontWeight: 500,
+    wordBreak: 'break-word',
+  },
+  counter: {
     fontSize: 13,
     color: 'var(--muted-foreground)',
     fontVariantNumeric: 'tabular-nums',
+    textAlign: 'right',
   },
   counterCurrent: { fontWeight: 700, color: 'var(--foreground)' },
   counterSep:     { margin: '0 2px' },
